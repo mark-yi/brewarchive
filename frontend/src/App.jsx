@@ -16,11 +16,16 @@ const BREW_TYPES = [
 function App() {
   const [newsletter, setNewsletter] = useState(null);
   const [daysAgo, setDaysAgo] = useState(null);
-  const [selectedBrew, setSelectedBrew] = useState(BREW_TYPES[0].value);
+  const [currentBrewType, setCurrentBrewType] = useState(null);
 
   const getNewsletter = async () => {
-    const randomDaysAgo = Math.floor(Math.random() * 365) + 1;
+    const randomDaysAgo = Math.floor(Math.random() * 10) + 1; // Random between 1 and 10
+    const randomBrewIndex = Math.floor(Math.random() * BREW_TYPES.length);
+    const selectedBrew = BREW_TYPES[randomBrewIndex].value;
+
     setDaysAgo(randomDaysAgo);
+    setCurrentBrewType(selectedBrew);
+
     try {
       const response = await fetch(`http://localhost:3001/newsletter?daysAgo=${randomDaysAgo}&brewType=${selectedBrew}`);
       const data = await response.json();
@@ -38,15 +43,10 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Morning Brew Archive</h1>
-        <select value={selectedBrew} onChange={(e) => setSelectedBrew(e.target.value)}>
-          {BREW_TYPES.map((brew) => (
-            <option key={brew.value} value={brew.value}>
-              {brew.label}
-            </option>
-          ))}
-        </select>
         <button onClick={getNewsletter}>Get New Newsletter</button>
-        {daysAgo !== null && <p>Newsletter from {daysAgo} days ago ({selectedBrew}).</p>}
+        {daysAgo !== null && currentBrewType !== null && (
+          <p>Newsletter from {daysAgo} days ago from {BREW_TYPES.find(b => b.value === currentBrewType)?.label || currentBrewType}.</p>
+        )}
       </header>
       <main>
         {newsletter ? (
