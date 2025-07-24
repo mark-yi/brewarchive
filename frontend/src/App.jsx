@@ -17,8 +17,14 @@ function App() {
   const [newsletter, setNewsletter] = useState(null);
   const [daysAgo, setDaysAgo] = useState(null);
   const [currentBrewType, setCurrentBrewType] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const getNewsletter = async () => {
+    setIsLoading(true); // Start loading
+    setNewsletter(null); // Clear previous newsletter
+    setDaysAgo(null); // Clear previous daysAgo
+    setCurrentBrewType(null); // Clear previous brewType
+
     const randomDaysAgo = Math.floor(Math.random() * 10) + 1; // Random between 1 and 10
     const randomBrewIndex = Math.floor(Math.random() * BREW_TYPES.length);
     const selectedBrew = BREW_TYPES[randomBrewIndex].value;
@@ -36,6 +42,8 @@ function App() {
       }
     } catch (error) {
       setNewsletter(`<p>Error fetching newsletter: ${error.message}</p>`);
+    } finally {
+      setIsLoading(false); // End loading
     }
   };
 
@@ -43,13 +51,17 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Morning Brew Archive</h1>
-        <button onClick={getNewsletter}>Get New Newsletter</button>
+        <button onClick={getNewsletter} disabled={isLoading}>
+          {isLoading ? 'Loading...' : 'Get New Newsletter'}
+        </button>
         {daysAgo !== null && currentBrewType !== null && (
           <p>Newsletter from {daysAgo} days ago from {BREW_TYPES.find(b => b.value === currentBrewType)?.label || currentBrewType}.</p>
         )}
       </header>
       <main>
-        {newsletter ? (
+        {isLoading ? (
+          <p>Scraping in progress, please wait...</p>
+        ) : newsletter ? (
           <div className="newsletter-content" dangerouslySetInnerHTML={{ __html: newsletter }} />
         ) : (
           <p>Click the button to get a newsletter.</p>
