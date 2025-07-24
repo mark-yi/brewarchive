@@ -3,9 +3,11 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
+const TurndownService = require('turndown');
 
 const app = express();
 const PORT = 3001;
+const turndownService = new TurndownService();
 
 const BREW_CONFIGS = {
   'brewmarkets': { baseUrl: 'https://www.brewmarkets.com', newsletterSlug: 'brew-markets' }, // Corrected newsletterSlug
@@ -316,8 +318,8 @@ app.get('/bulk-scrape', async (req, res) => {
           const { data: newsletterContentData } = await axios.get(newsletterContentUrl);
 
           if (newsletterContentData.pageProps.issueData && newsletterContentData.pageProps.issueData.html) {
-            const html = newsletterContentData.pageProps.issueData.html.replace(/\n/g, ' ').replace(/"/g, "'");
-            csvContent += `"${brewType}","${foundNewsletterMeta.date}","${html}"\n`;
+            const markdown = turndownService.turndown(newsletterContentData.pageProps.issueData.html).replace(/\n/g, ' ').replace(/"/g, "'");
+            csvContent += `"${brewType}","${foundNewsletterMeta.date}","${markdown}"\n`;
           }
         }
         progress++;
