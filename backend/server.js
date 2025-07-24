@@ -237,6 +237,101 @@ app.get('/newsletter', async (req, res) => {
   }
 });
 
+app.get('/bulk-scrape', async (req, res) => {
+  const brewTypes = Object.keys(BREW_CONFIGS);
+  let csvContent = 'brew_type,date,html\n';
+  let progress = 0;
+  const totalSteps = brewTypes.length * 10;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendProgress = (progress) => {
+    res.write(`data: ${JSON.stringify({ progress })}\n\n`);
+  };
+
+  for (const brewType of brewTypes) {
+    const { baseUrl, newsletterSlug } = BREW_CONFIGS[brewType];
+    try {
+      const { buildId, allArchiveIssuesKey } = await getBrewConfig(brewType, baseUrl, newsletterSlug);
+      for (let daysAgo = 1; daysAgo <= 10; daysAgo++) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() - daysAgo);
+
+        let foundNewsletterMeta = null;
+        let page = 1;
+        let allIssuesMeta = [];
+
+        while (!foundNewsletterMeta && page <= 5) {
+          const paginatedArchiveUrl = `${baseUrl}/_next/data/${buildId}/archive.json?page=${page}`;
+          const { data: paginatedData } = await axios.get(paginatedArchiveUrl);
+          const issues = paginatedData.pageProps.initialApolloState.ROOT_QUERY[allArchiveIssuesKey];
+
+          if (!issues || issues.length === 0) {
+            break;
+          }
+
+          allIssuesMeta = [...allIssuesMeta, ...issues];
+
+          let closestIssue = null;
+          let minDiff = Infinity;
+
+          for (const issue of issues) {
+            const issueDate = new Date(issue.date);
+            issueDate.setHours(0, 0, 0, 0);
+            const diff = Math.abs(targetDate.getTime() - issueDate.getTime());
+
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestIssue = issue;
+            }
+          }
+
+          if (closestIssue && minDiff === 0) {
+            foundNewsletterMeta = closestIssue;
+          } else if (page > 5 && allIssuesMeta.length > 0) {
+            let overallClosest = null;
+            let overallMinDiff = Infinity;
+            for (const issue of allIssuesMeta) {
+              const issueDate = new Date(issue.date);
+              issueDate.setHours(0, 0, 0, 0);
+              const diff = Math.abs(targetDate.getTime() - issueDate.getTime());
+              if (diff < overallMinDiff) {
+                overallMinDiff = diff;
+                overallClosest = issue;
+              }
+            }
+            foundNewsletterMeta = overallClosest;
+          }
+
+          page++;
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        if (foundNewsletterMeta) {
+          const newsletterContentUrl = `${baseUrl}/_next/data/${buildId}/issues/${foundNewsletterMeta.slug}.json?slug=${foundNewsletterMeta.slug}`;
+          const { data: newsletterContentData } = await axios.get(newsletterContentUrl);
+
+          if (newsletterContentData.pageProps.issueData && newsletterContentData.pageProps.issueData.html) {
+            const html = newsletterContentData.pageProps.issueData.html.replace(/\n/g, ' ').replace(/"/g, "'");
+            csvContent += `"${brewType}","${foundNewsletterMeta.date}","${html}"\n`;
+          }
+        }
+        progress++;
+        sendProgress(Math.round((progress / totalSteps) * 100));
+      }
+    } catch (error) {
+      console.error(`Error scraping ${brewType}:`, error);
+    }
+  }
+
+  res.write(`data: ${JSON.stringify({ csv: csvContent })}\n\n`);
+  res.end();
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });

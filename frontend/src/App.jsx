@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import Bulk from './Bulk';
 import './App.css';
 
 const BREW_TYPES = [
@@ -14,6 +16,25 @@ const BREW_TYPES = [
 ];
 
 function App() {
+  return (
+    <Router>
+      <>
+        <nav>
+          <Link to="/">Home</Link>
+          <Link to="/bulk">Bulk Scrape</Link>
+        </nav>
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/bulk" element={<Bulk />} />
+          </Routes>
+        </div>
+      </>
+    </Router>
+  );
+}
+
+function Home() {
   const [newsletter, setNewsletter] = useState(null);
   const [daysAgo, setDaysAgo] = useState(null);
   const [currentBrewType, setCurrentBrewType] = useState(null);
@@ -48,7 +69,7 @@ function App() {
   };
 
   return (
-    <div className="App">
+    <>
       <header className="App-header">
         <h1>Morning Brew Archive</h1>
         <button onClick={getNewsletter} disabled={isLoading}>
@@ -67,7 +88,7 @@ function App() {
           <p>Click the button to get a newsletter.</p>
         )}
       </main>
-    </div>
+    </>
   );
 }
 
